@@ -1,17 +1,17 @@
-#ifdef RCT_NEW_ARCH_ENABLED
-#import <rndocumentpicker/rndocumentpicker.h>
-#else
+// #ifdef RCT_NEW_ARCH_ENABLED
+// #import <rndocumentpicker/rndocumentpicker.h>
+// #else
 #import <React/RCTBridgeModule.h>
-#endif
+// #endif
 
 #import <UIKit/UIKit.h>
 
 @interface RNDocumentPickerZowie : NSObject <
-#ifdef RCT_NEW_ARCH_ENABLED
-        NativeDocumentPickerSpec
-#else
+// #ifdef RCT_NEW_ARCH_ENABLED
+//         NativeDocumentPickerSpec
+// #else
         RCTBridgeModule
-#endif
+// #endif
     >
 
 @end

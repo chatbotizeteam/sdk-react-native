@@ -26,15 +26,15 @@ RCT_ENUM_CONVERTER(
 
 @end
 
-#ifdef RCT_NEW_ARCH_ENABLED
-
-#import "RNImagePickerSpec.h"
-@interface ImagePickerManagerZowie : NSObject <RNImagePickerSpec>
-@end
-
-#else
+// #ifdef RCT_NEW_ARCH_ENABLED
+//
+// #import "RNImagePickerSpec.h"
+// @interface ImagePickerManagerZowie : NSObject <RNImagePickerSpec>
+// @end
+//
+// #else
 
 @interface ImagePickerManagerZowie : NSObject <RCTBridgeModule>
 @end
 
-#endif
+// #endif
