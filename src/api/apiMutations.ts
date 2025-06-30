@@ -1,7 +1,9 @@
 import { type FetchResult } from '@apollo/client';
 import {
+  CLEAR_EXTERNAL_CONVERSATION_HISTORY,
   DELIVERED_MUTATION,
   READ_MUTATION,
+  SAVE_EXTERNAL_CONVERSATION_HISTORY,
   SEND_FILE,
   SEND_REFERRAL_MUTATION,
   SET_ACTIVE,
@@ -14,7 +16,15 @@ import {
 } from '../utils/mutations';
 import { client, refreshClient } from '../utils/apollo-client';
 import { Platform } from 'react-native';
-import type { TSigninResponse, TSignupResponse } from '../types/api';
+import type {
+  ClearExternalConversationHistoryResponse,
+  ClearExternalConversationHistoryVariables,
+  ExternalMessageInput,
+  SaveExternalConversationHistoryResponse,
+  SaveExternalConversationHistoryVariables,
+  TSigninResponse,
+  TSignupResponse,
+} from '../types/api';
 import { GET_MESSAGES } from '../utils/queries';
 import type {
   CustomParamInput,
@@ -142,7 +152,13 @@ const continueExistChat = async (
   host: string,
   metaData?: MetaData,
   contextId?: string | undefined,
-  fcmToken?: string | undefined
+  fcmToken?: string | undefined,
+  initSaveExternalConversation?:
+    | {
+        externalSystemId: string;
+        externalMessages: ExternalMessageInput[];
+      }
+    | undefined
 ) => {
   try {
     const userId = await AsyncStorage.getItem('@userId');
@@ -169,6 +185,14 @@ const continueExistChat = async (
       if (fcmToken) {
         await setFcmToken(fcmToken, token, conversationId);
       }
+      if (initSaveExternalConversation) {
+        const { externalSystemId, externalMessages } =
+          initSaveExternalConversation;
+        await saveExternalConversationHistory(
+          externalSystemId,
+          externalMessages
+        );
+      }
       return { conversationId, token, password, userId };
     } else return null;
   } catch (e) {
@@ -182,7 +206,13 @@ export const initializeNewChat = async (
   metaData?: MetaData,
   contextId?: string | undefined,
   fcmToken?: string | undefined,
-  conversationInitReferral?: string | undefined
+  conversationInitReferral?: string | undefined,
+  initSaveExternalConversation?:
+    | {
+        externalSystemId: string;
+        externalMessages: ExternalMessageInput[];
+      }
+    | undefined
 ) => {
   try {
     const responseSignup = await singUp(instanceId);
@@ -221,6 +251,14 @@ export const initializeNewChat = async (
         if (fcmToken) {
           await setFcmToken(fcmToken, token, conversationId);
         }
+        if (initSaveExternalConversation) {
+          const { externalSystemId, externalMessages } =
+            initSaveExternalConversation;
+          await saveExternalConversationHistory(
+            externalSystemId,
+            externalMessages
+          );
+        }
         return { conversationId, token, password, userId };
       }
     }
@@ -238,7 +276,13 @@ export const initializeJwtChat = async (
   metaData?: MetaData,
   contextId?: string | undefined,
   fcmToken?: string | undefined,
-  conversationInitReferral?: string | undefined
+  conversationInitReferral?: string | undefined,
+  initSaveExternalConversation?:
+    | {
+        externalSystemId: string;
+        externalMessages: ExternalMessageInput[];
+      }
+    | undefined
 ) => {
   try {
     const responseSignin = await singInJwt(
@@ -276,6 +320,14 @@ export const initializeJwtChat = async (
       if (fcmToken) {
         await setFcmToken(fcmToken, token, conversationId);
       }
+      if (initSaveExternalConversation) {
+        const { externalSystemId, externalMessages } =
+          initSaveExternalConversation;
+        await saveExternalConversationHistory(
+          externalSystemId,
+          externalMessages
+        );
+      }
       return { conversationId, token, password: '', userId: authorId };
     } else {
       return null;
@@ -304,7 +356,8 @@ export const initializeChat = async (
       metaData,
       config.contextId,
       config.fcmToken,
-      config.conversationInitReferral
+      config.conversationInitReferral,
+      config.initSaveExternalConversation
     );
   } else if (isChatExist) {
     return await continueExistChat(
@@ -312,7 +365,8 @@ export const initializeChat = async (
       host,
       metaData,
       config.contextId,
-      config.fcmToken
+      config.fcmToken,
+      config.initSaveExternalConversation
     );
   } else {
     return await initializeNewChat(
@@ -321,7 +375,8 @@ export const initializeChat = async (
       metaData,
       config.contextId,
       config.fcmToken,
-      config.conversationInitReferral
+      config.conversationInitReferral,
+      config.initSaveExternalConversation
     );
   }
 };
@@ -468,5 +523,91 @@ export const setFcmToken = async (
     } else return response;
   } catch (e) {
     throw `FCM token error [${e}]`;
+  }
+};
+
+export const saveExternalConversationHistory = async (
+  externalSystemId: string,
+  externalMessages: ExternalMessageInput[]
+): Promise<
+  SaveExternalConversationHistoryResponse['saveExternalConversationHistory']
+> => {
+  try {
+    const token = await AsyncStorage.getItem('@token');
+    const conversationId = await AsyncStorage.getItem('@conversationId');
+
+    if (!token || !conversationId) {
+      throw new Error(
+        `ZowieChat No token or conversationId, try first init chat or clear session`
+      );
+    }
+
+    const { data } = await client.mutate<
+      SaveExternalConversationHistoryResponse,
+      SaveExternalConversationHistoryVariables
+    >({
+      mutation: SAVE_EXTERNAL_CONVERSATION_HISTORY,
+      variables: {
+        conversationId,
+        externalSystemId,
+        externalMessages,
+      },
+      context: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      fetchPolicy: 'no-cache',
+    });
+
+    if (!data) {
+      throw new Error(' ZowieChat No data returned from mutation');
+    }
+
+    return data.saveExternalConversationHistory;
+  } catch (e) {
+    throw new Error(`ZowieChat saveExternalConversationHistory error: ${e}`);
+  }
+};
+
+export const clearExternalConversationHistory = async (
+  externalSystemId: string
+): Promise<
+  ClearExternalConversationHistoryResponse['clearExternalConversationHistory']
+> => {
+  try {
+    const token = await AsyncStorage.getItem('@token');
+    const conversationId = await AsyncStorage.getItem('@conversationId');
+
+    if (!token || !conversationId) {
+      throw new Error(
+        `ZowieChat No token or conversationId, try first init chat or clear session`
+      );
+    } else {
+      const { data } = await client.mutate<
+        ClearExternalConversationHistoryResponse,
+        ClearExternalConversationHistoryVariables
+      >({
+        mutation: CLEAR_EXTERNAL_CONVERSATION_HISTORY,
+        variables: {
+          externalSystemId,
+          conversationId,
+        },
+        context: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+        fetchPolicy: 'no-cache',
+      });
+
+      if (!data) {
+        throw new Error('ZowieChat No data returned from mutation');
+      }
+
+      return data.clearExternalConversationHistory;
+    }
+  } catch (e) {
+    throw new Error(`ZowieChat clearExternalConversationHistory error: ${e}`);
   }
 };

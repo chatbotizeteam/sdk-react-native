@@ -59,6 +59,7 @@ import { sendFile } from '../api/rest';
 import { imageLibrary } from '../components/ImagePicker';
 import { useTranslations } from '../hooks/translations';
 import useUserActivity from '../hooks/userActivity';
+import { useMessageHandler } from '../hooks/useMessageHandler';
 
 interface Props {
   style?: ViewStyle;
@@ -85,6 +86,7 @@ const MainView = ({
   const { colors } = useColors();
   const { userInfo, setUserInfo } = useUserInfo();
   const { show, videoUrl, setShow } = useVideo();
+  const { onMessage } = useMessageHandler();
   const isConnected = useIsInternetConnection();
   const [text, onChangeText] = React.useState('');
   const [messages, setMessages] = useState<Message[] | []>([]);
@@ -473,7 +475,7 @@ const MainView = ({
       },
     },
     onData: ({ data }) => {
-      const messageType = data.data?.newMessage.payload.__typename;
+      const messageType = data.data?.newMessage?.payload.__typename;
 
       if (messageType === PayloadTypes.TypingOn) {
         setShowTyping(true);
@@ -484,10 +486,21 @@ const MainView = ({
       }
 
       if (messageType && !notAllowedTypesToMessageList.includes(messageType)) {
-        addNewMessage(data.data?.newMessage);
+        const message = data.data?.newMessage;
+        addNewMessage(message);
         InteractionManager.runAfterInteractions(async () => {
           setShowTyping(false);
           scrollToLatest();
+          /** handling text messages */
+          if (messageType === PayloadTypes.Text) {
+            try {
+              if (message) {
+                onMessage?.(message);
+              }
+            } catch (e) {
+              console.warn('ZowieChat Error on handling new text message: ', e);
+            }
+          }
         });
       }
     },

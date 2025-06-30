@@ -19,6 +19,17 @@ import {
   setNewReferral,
 } from './utils/referralModificator';
 import { OnPressLinkProvider } from './hooks/onPressLink';
+import {
+  type MessageHandler,
+  MessageProvider,
+} from './hooks/useMessageHandler';
+import type { Message } from './types/queries';
+import type {
+  ExternalMessageInput,
+  ConversationHistoryResponse,
+  GetExternalConversationHistoryResponse,
+  GetZowieConversationHistoryResponse,
+} from './types/api';
 
 export enum ZowieAuthenticationType {
   Anonymous = 'Anonymous',
@@ -33,6 +44,10 @@ export interface ZowieConfig {
   contextId?: string;
   fcmToken?: string;
   conversationInitReferral?: string;
+  initSaveExternalConversation?: {
+    externalSystemId: string;
+    externalMessages: ExternalMessageInput[];
+  };
 }
 
 export interface ZowieChatProps {
@@ -47,6 +62,7 @@ export interface ZowieChatProps {
   config: ZowieConfig;
   host: string;
   onPressLink?: (url: string) => void;
+  onNewTextMessage?: MessageHandler;
 }
 
 let isZowieChatMounted = false;
@@ -63,6 +79,7 @@ export const ZowieChat = ({
   translations,
   theme,
   onPressLink,
+  onNewTextMessage,
 }: ZowieChatProps) => {
   setHost(host);
 
@@ -80,17 +97,19 @@ export const ZowieChat = ({
           <VideoProvider>
             <ColorsProvider customColors={customColors}>
               <UserInfoProvider>
-                <OnPressLinkProvider onPressLink={onPressLink || undefined}>
-                  <MainView
-                    host={host}
-                    style={style}
-                    androidKeyboardOffset={androidKeyboardOffset}
-                    iosKeyboardOffset={iosKeyboardOffset}
-                    metaData={metaData}
-                    onStartChatError={onStartChatError}
-                    config={config}
-                  />
-                </OnPressLinkProvider>
+                <MessageProvider onMessage={onNewTextMessage || undefined}>
+                  <OnPressLinkProvider onPressLink={onPressLink || undefined}>
+                    <MainView
+                      host={host}
+                      style={style}
+                      androidKeyboardOffset={androidKeyboardOffset}
+                      iosKeyboardOffset={iosKeyboardOffset}
+                      metaData={metaData}
+                      onStartChatError={onStartChatError}
+                      config={config}
+                    />
+                  </OnPressLinkProvider>
+                </MessageProvider>
               </UserInfoProvider>
             </ColorsProvider>
           </VideoProvider>
@@ -100,6 +119,7 @@ export const ZowieChat = ({
   );
 };
 
+/** Use this functions when you have sure that component is mounted **/
 export const clearSession = async () => {
   try {
     if (await checkChatExits()) {
@@ -120,4 +140,24 @@ export const setReferral = async (referralId: string) => {
   await setNewReferral(referralId, isZowieChatMounted);
 };
 
-export type { Colors, MetaData, Translations, Theme };
+export {
+  saveExternalConversationHistory,
+  clearExternalConversationHistory,
+} from './api/apiMutations';
+
+export {
+  getExternalConversationHistory,
+  getZowieConversationHistory,
+} from './api/apiQueries';
+
+export type {
+  Colors,
+  MetaData,
+  Translations,
+  Theme,
+  Message,
+  ExternalMessageInput,
+  GetExternalConversationHistoryResponse,
+  ConversationHistoryResponse,
+  GetZowieConversationHistoryResponse,
+};

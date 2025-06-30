@@ -66,6 +66,7 @@ const myConfigJwt: ZowieConfig = {
 The error argument is a string describing the nature of the error encountered. More info in Troubleshooting
 - **theme** (Theme, optional): A few additional styles for messages and quick buttons
 - **onPressLink** ((url: string) => void, optional): Function for custom handling all links in application (without phone call and file buttons)
+- **handleNewMessage** ((message: Message) void, optional): Function to which the latest message is passed when the component is running
 
 ### ZowieConfig Type
 ```ts
@@ -77,6 +78,10 @@ interface ZowieConfig {
   contextId?: string;
   fcmToken?: string;
   conversationInitReferral?: string;
+  initSaveExternalConversation?: { //check also saveExternalConversationHistory function below
+    externalSystemId: string;
+    externalMessages: ExternalMessageInput[];
+  };
 }
 ```
 
@@ -197,7 +202,7 @@ const defaultTexts = {
 ```
 
 
-## Additional Functions
+
 ### clearSession()
 This function allows you to reset anonymous chat session. Should be called before mount chat component.
 ```js
@@ -212,6 +217,77 @@ import { setReferral } from './react-native-zowiesdk';
 
 await setReferral(my_new_referral_string);
 ```
+
+### Make sure that you are using below functions when component is mounted
+
+### saveExternalConversationHistory(externalSystemId: string,externalMessages: ExternalMessageInput[])
+This function allows you to save your external conversation. You can also use ```initSaveExternalConversation``` from ```ZowieConfig``` to save external conversation automatically after component mount.
+```ts
+import { saveExternalConversationHistory, type ExternalMessageInput } from './react-native-zowiesdk';
+
+const externalConv: ExternalMessageInput[] = [
+  {
+    author: {authorId: 'id', type: 'System', name: 'name'},
+    messageId: 'msg2',
+    time: 2000,
+    payload: {text: 'msg 2 text from system', additionalParams: []},
+  },
+];
+
+await saveExternalConversationHistory('uniq_external_id', externalConv);
+```
+
+### clearExternalConversationHistory(externalSystemId: string)
+This function allows you to clear a previously saved external conversation based on the externalId you have completed.
+```ts
+import { clearExternalConversationHistory } from './react-native-zowiesdk';
+
+await clearExternalConversationHistory('uniq_external_id',);
+```
+
+### getExternalConversationHistory(variables: {offset: number,enentriesPerPage: number,externalSystemId: string}): GetExternalConversationHistoryResponse
+This function allows you to get external conversation if was previously saved on current conversation.
+```ts
+import { getExternalConversationHistory, type GetExternalConversationHistoryResponse } from './react-native-zowiesdk';
+const offset: number = 3000 // A Unix timestamp in milliseconds. The function will return up to entriesPerPage messages created before the given offset, sorted in descending order (from newest to oldest).
+const enentriesPerPage: number = 100;
+const externalSystemId: string = "uniq_external_id"
+await getExternalConversationHistory({offset,enentriesPerPage,externalSystemId});
+```
+GetExternalConversationHistoryResponse type
+```ts
+export interface ConversationHistoryResponse {
+  messages: ConversationHistoryMessage[];
+  currentOffset: number;
+  nextOffset?: number;
+}
+
+export interface GetExternalConversationHistoryResponse {
+  getExternalConversationHistory: ConversationHistoryResponse;
+}
+```
+### getZowieConversationHistory(variables: {offset: number,enentriesPerPage: number}): GetZowieConversationHistoryResponse
+This function allows you to get current zowie conversation.
+```ts
+import { getZowieConversationHistory, type GetZowieConversationHistoryResponse } from './react-native-zowiesdk';
+const offset: number = 3000 // A Unix timestamp in milliseconds. The function will return up to entriesPerPage messages created before the given offset, sorted in descending order (from newest to oldest).
+const enentriesPerPage: number = 100;
+await getZowieConversationHistory({offset, enentriesPerPage});
+```
+GetZowieConversationHistoryResponse type
+```ts
+export interface ConversationHistoryResponse {
+  messages: ConversationHistoryMessage[];
+  currentOffset: number;
+  nextOffset?: number;
+}
+
+export interface GetZowieConversationHistoryResponse {
+  getZowieConversationHistory: ConversationHistoryResponse;
+}
+```
+
+
 
 ## Troubleshooting
 
