@@ -220,3 +220,35 @@ export const SET_FCM_ANDROID = gql`
     }
   }
 `;
+
+export const SAVE_EXTERNAL_CONVERSATION_HISTORY = gql`
+  mutation SaveExternalConversationHistory(
+    $externalSystemId: String!
+    $conversationId: String!
+    $externalMessages: [ExternalMessageInput!]!
+  ) {
+    saveExternalConversationHistory(
+      externalSystemId: $externalSystemId
+      conversationId: $conversationId
+      externalMessages: $externalMessages
+    ) {
+      result
+      errors
+    }
+  }
+`;
+
+export const CLEAR_EXTERNAL_CONVERSATION_HISTORY = gql`
+  mutation ClearExternalConversationHistory(
+    $externalSystemId: String!
+    $conversationId: String!
+  ) {
+    clearExternalConversationHistory(
+      externalSystemId: $externalSystemId
+      conversationId: $conversationId
+    ) {
+      result
+      errors
+    }
+  }
+`;

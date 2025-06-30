@@ -194,3 +194,87 @@ export const GET_MESSAGES = gql`
     }
   }
 `;
+
+export const GET_EXTERNAL_CONVERSATION_HISTORY = gql`
+  query GetExternalConversationHistory(
+    $externalSystemId: String!
+    $conversationId: String!
+    $offset: Long!
+    $entriesPerPage: Int!
+  ) {
+    getExternalConversationHistory(
+      externalSystemId: $externalSystemId
+      conversationId: $conversationId
+      offset: $offset
+      entriesPerPage: $entriesPerPage
+    ) {
+      messages {
+        messageId
+        time
+        author {
+          type
+          authorId
+          name
+        }
+        payload {
+          ... on TextMessage {
+            text
+          }
+          ... on FileMessage {
+            url
+            filename
+          }
+          ... on CustomMessage {
+            additionalParams {
+              key
+              value
+            }
+          }
+        }
+      }
+      currentOffset
+      nextOffset
+    }
+  }
+`;
+
+export const GET_ZOWIE_CONVERSATION_HISTORY = gql`
+  query GetZowieConversationHistory(
+    $conversationId: String!
+    $offset: Long!
+    $entriesPerPage: Int!
+  ) {
+    getZowieConversationHistory(
+      conversationId: $conversationId
+      offset: $offset
+      entriesPerPage: $entriesPerPage
+    ) {
+      messages {
+        messageId
+        time
+        author {
+          type
+          authorId
+          name
+        }
+        payload {
+          ... on TextMessage {
+            text
+          }
+          ... on FileMessage {
+            url
+            filename
+          }
+          ... on CustomMessage {
+            additionalParams {
+              key
+              value
+            }
+          }
+        }
+      }
+      currentOffset
+      nextOffset
+    }
+  }
+`;
