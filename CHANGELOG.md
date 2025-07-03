@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - 2025-06-30
 
 ### Added
-- 4 new functions for converse status management ```getExternalConversationHistory``` ```getExternalConversationHistory``` ```clearExternalConversationHistory``` ```saveExternalConversationHistory```
+- 4 new functions for converse status management ```getExternalConversationHistory``` ```getZowieConversationHistory``` ```clearExternalConversationHistory``` ```saveExternalConversationHistory```
 - New optional props ```onNewTextMessage``` for handling all text messages coming in while the component is running.
 - New optional property ```initSaveExternalConversation``` in object ```ZowieConfig``` to support automation ```saveExternalConversationHistory```
 
