@@ -3,6 +3,7 @@ import {
   Alert,
   FlatList,
   InteractionManager,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   View,
@@ -94,6 +95,8 @@ const MainView = ({
   const [isNewestReaded, setIsNewestReaded] = useState(false);
   const [isNewestMessageVisible, setIsNewestMessageVisible] = useState(false);
   const [chatInitLoading, setChatInitLoading] = useState(false);
+  /** Support for android 15 keyboard overlay input issue */
+  const [kavEnabled, setKavEnabled] = useState(false);
 
   const [sendText] = useMutation(SEND_TEXT_MUTATION);
   const [sendButton] = useMutation(SEND_BUTTON_MUTATION);
@@ -604,9 +607,24 @@ const MainView = ({
     userInfo.token,
   ]);
 
+  /** Support for android 15 keyboard overlay input issue */
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () =>
+      setKavEnabled(true)
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () =>
+      setKavEnabled(false)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      enabled={Platform.OS === 'ios' ? true : kavEnabled}
       style={
         style || [
           styles.defaultStyle,
@@ -615,7 +633,7 @@ const MainView = ({
       }
       contentContainerStyle={styles.flex1}
       keyboardVerticalOffset={
-        Platform.OS === 'ios' ? iosKeyboardOffset : androidKeyboardOffset + 20
+        Platform.OS === 'ios' ? iosKeyboardOffset : androidKeyboardOffset
       }
     >
       {show ? (

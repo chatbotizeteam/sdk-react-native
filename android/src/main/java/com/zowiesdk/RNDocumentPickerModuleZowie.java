@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.util.Log;
@@ -18,7 +20,6 @@ import androidx.annotation.NonNull;
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.BaseActivityEventListener;
-import com.facebook.react.bridge.GuardedResultAsyncTask;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
@@ -38,7 +39,10 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+@ReactModule(name = RNDocumentPickerModuleZowie.NAME)
 public class RNDocumentPickerModuleZowie extends ReactContextBaseJavaModule {
   public static final String NAME = "RNDocumentPickerZowie";
   private static final int READ_REQUEST_CODE = 41;
@@ -138,7 +142,7 @@ public class RNDocumentPickerModuleZowie extends ReactContextBaseJavaModule {
           if (types.size() > 1) {
             String[] mimeTypes = readableArrayToStringArray(types);
             intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-            intent.setType(String.join("|",mimeTypes));
+            intent.setType(String.join("|", mimeTypes));
           } else if (types.size() == 1) {
             intent.setType(types.getString(0));
           }
@@ -220,41 +224,38 @@ public class RNDocumentPickerModuleZowie extends ReactContextBaseJavaModule {
         return;
       }
 
-      new ProcessDataTask(getReactApplicationContext(), uris, copyTo, promise).execute();
+      // old: new ProcessDataTask(...).execute();
+      ProcessDataTask.execute(getReactApplicationContext(), uris, copyTo, promise);
     } catch (Exception e) {
       sendError(E_UNEXPECTED_EXCEPTION, e.getLocalizedMessage(), e);
     }
   }
 
-  private static class ProcessDataTask extends GuardedResultAsyncTask<ReadableArray> {
-    private final WeakReference<Context> weakContext;
-    private final List<Uri> uris;
-    private final String copyTo;
-    private final Promise promise;
+  /**
+   * Replace GuardedResultAsyncTask – ExecutorService + Handler
+   */
+  private static class ProcessDataTask {
+    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
-    protected ProcessDataTask(ReactContext reactContext, List<Uri> uris, String copyTo, Promise promise) {
-      super(reactContext.getExceptionHandler());
-      this.weakContext = new WeakReference<>(reactContext.getApplicationContext());
-      this.uris = uris;
-      this.copyTo = copyTo;
-      this.promise = promise;
+    static void execute(ReactContext reactContext, List<Uri> uris, String copyTo, Promise promise) {
+      final WeakReference<Context> weakContext = new WeakReference<>(reactContext.getApplicationContext());
+      final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+      EXECUTOR.submit(() -> {
+        try {
+          WritableArray results = Arguments.createArray();
+          for (Uri uri : uris) {
+            results.pushMap(getMetadata(weakContext, copyTo, uri));
+          }
+          mainHandler.post(() -> promise.resolve(results));
+        } catch (Exception e) {
+          reactContext.getExceptionHandler().handleException(e);
+          mainHandler.post(() -> promise.reject(E_UNEXPECTED_EXCEPTION, e.getLocalizedMessage(), e));
+        }
+      });
     }
 
-    @Override
-    protected ReadableArray doInBackgroundGuarded() {
-      WritableArray results = Arguments.createArray();
-      for (Uri uri : uris) {
-        results.pushMap(getMetadata(uri));
-      }
-      return results;
-    }
-
-    @Override
-    protected void onPostExecuteGuarded(ReadableArray readableArray) {
-      promise.resolve(readableArray);
-    }
-
-    private WritableMap getMetadata(Uri uri) {
+    private static WritableMap getMetadata(WeakReference<Context> weakContext, String copyTo, Uri uri) {
       Context context = weakContext.get();
       if (context == null) {
         return Arguments.createMap();
@@ -285,21 +286,21 @@ public class RNDocumentPickerModuleZowie extends ReactContextBaseJavaModule {
         }
       }
 
-      prepareFileUri(context, map, uri);
+      prepareFileUri(context, map, copyTo, uri);
       return map;
     }
 
-    private void prepareFileUri(Context context, WritableMap map, Uri uri) {
+    private static void prepareFileUri(Context context, WritableMap map, String copyTo, Uri uri) {
       if (copyTo == null) {
         map.putNull(FIELD_FILE_COPY_URI);
       } else {
-        copyFileToLocalStorage(context, map, uri);
+        copyFileToLocalStorage(context, map, copyTo, uri);
       }
     }
 
-    private void copyFileToLocalStorage(Context context, WritableMap map, Uri uri) {
+    private static void copyFileToLocalStorage(Context context, WritableMap map, String copyTo, Uri uri) {
       File dir = context.getCacheDir();
-      if (copyTo.equals("documentDirectory")) {
+      if ("documentDirectory".equals(copyTo)) {
         dir = context.getFilesDir();
       }
       // we don't want to rename the file so we put it into a unique location
@@ -323,7 +324,7 @@ public class RNDocumentPickerModuleZowie extends ReactContextBaseJavaModule {
       }
     }
 
-    public File safeGetDestination(File destFile, String expectedDir) throws IllegalArgumentException, IOException {
+    private static File safeGetDestination(File destFile, String expectedDir) throws IllegalArgumentException, IOException {
       String canonicalPath = destFile.getCanonicalPath();
       if (!canonicalPath.startsWith(expectedDir)) {
         throw new IllegalArgumentException("The copied file is attempting to write outside of the target directory.");
@@ -331,9 +332,9 @@ public class RNDocumentPickerModuleZowie extends ReactContextBaseJavaModule {
       return destFile;
     }
 
-    public static Uri copyFile(Context context, Uri uri, File destFile) throws IOException {
-      try(InputStream inputStream = context.getContentResolver().openInputStream(uri);
-          FileOutputStream outputStream = new FileOutputStream(destFile)) {
+    private static Uri copyFile(Context context, Uri uri, File destFile) throws IOException {
+      try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
+           FileOutputStream outputStream = new FileOutputStream(destFile)) {
         byte[] buf = new byte[8192];
         int len;
         while ((len = inputStream.read(buf)) > 0) {
