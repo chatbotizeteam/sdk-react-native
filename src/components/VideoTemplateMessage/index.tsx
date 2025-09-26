@@ -2,6 +2,7 @@ import {
   Dimensions,
   Image,
   ImageBackground,
+  InteractionManager,
   NativeModules,
   Platform,
   TouchableOpacity,
@@ -34,6 +35,7 @@ const VideoTemplateMessage = ({ payload, style, isUser, onSend }: Props) => {
   const [imageBase64, setImageBase64] = useState('');
   const [imgHeight, setImgHeight] = useState(0);
   const [imgWidth, setImgWidth] = useState(0);
+  const [loading, setLoading] = useState(false);
   const showButtons = payload.buttons?.length > 0;
 
   const getWindowWidth = useMemo(() => {
@@ -50,12 +52,24 @@ const VideoTemplateMessage = ({ payload, style, isUser, onSend }: Props) => {
     return windowWidth;
   }, [style]);
 
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
   useEffect(() => {
     let width = getWindowWidth - Math.round(getWindowWidth * 0.23 + 20);
     setImgWidth(width);
     (async () => {
       try {
-        const base64 = await Zowiesdk.generateThumbnailFromURL(payload.url);
+        let base64 = '';
+        try {
+          base64 = await Zowiesdk.generateThumbnailFromURL(payload.url);
+        } catch (e) {
+          await sleep(100);
+          base64 = await Zowiesdk.generateThumbnailFromURL(payload.url);
+        }
+        if (base64 === '') {
+          return;
+        }
         const jpegBase64 = prepareJpegBase64(base64);
         Image.getSize(jpegBase64, (w, h) => {
           const imgRatio = h / w;
@@ -75,13 +89,32 @@ const VideoTemplateMessage = ({ payload, style, isUser, onSend }: Props) => {
     })();
   }, [getWindowWidth, payload.url]);
 
-  const onOpenVideo = () => {
+  function openVideoIos(url: string) {
+    return new Promise<void>((resolve, reject) => {
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(
+          () => {
+            VideoPlayerBridge.renderVideoFromUrl(url)
+              .then(() => resolve())
+              .catch(reject);
+          },
+          Platform.OS === 'ios' ? 0 : 0
+        );
+      });
+    });
+  }
+
+  const onOpenVideo = async (url: string) => {
     if (Platform.OS === 'ios') {
+      setLoading(true);
       try {
-        VideoPlayerBridge.renderVideoFromUrl(payload.url);
-      } catch (e) {}
+        await openVideoIos(url);
+        setLoading(false);
+      } catch (e) {
+        setLoading(false);
+      }
     } else {
-      setVideoUrl(payload.url);
+      setVideoUrl(url);
       setShow(true);
     }
   };
@@ -99,7 +132,12 @@ const VideoTemplateMessage = ({ payload, style, isUser, onSend }: Props) => {
         },
       ]}
     >
-      <TouchableOpacity onPress={onOpenVideo}>
+      <TouchableOpacity
+        onPress={async () => {
+          await onOpenVideo(payload.url);
+        }}
+        disabled={loading}
+      >
         {imageBase64 !== '' && (
           <ImageBackground
             source={{

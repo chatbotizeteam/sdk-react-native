@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-09-26
+
+### Changed
+- Video messages on Android are displayed in full screen as Dialog
+- Support for displaying video messages for newer versions of iOS
+
+### Fixed
+- Problem with Android build with RN v0.78 https://github.com/chatbotizeteam/sdk-react-native/issues/11
+- The keyboard covers the view of the new message input in Android 15.
+- Problem with displaying video messages for iOS
+
+
 ## [2.1.0] - 2025-06-30
 
 ### Added
